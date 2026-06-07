@@ -98,12 +98,31 @@ def load_data(cleaned_df):
             cur.close()
             conn.close()
 
+def export_deliverable(cleaned_df):  # This will create the genre summary CSV file.
+
+    report_df = cleaned_df.copy()
+    report_df["genres"] = report_df["genres"].str.split(", ") #.str because pandas columns are arrays (Series), and standard Python string methods like .split() do not work on arrays directly. The .str accessor tells pandas to apply the string operation to every individual text item inside the column.
+    report_df = report_df.explode("genres") # dataframe.explode() is used to transform a single row containing a list-like structure into multiple rows. Basically 1NF.
+    report_df = report_df.groupby("genres").agg(
+        game_count=("name","count"),
+        avg_rating=("rating","mean"),
+        avg_playtime=("playtime","mean"),
+    ).reset_index()
+    report_df["avg_rating"] = report_df["avg_rating"].round(2)
+    report_df["avg_playtime"] = report_df["avg_playtime"].round(2)
+    report_df.rename(columns={'genres': 'genre'}, inplace=True)   # this is how to rename a column in pandas, we use the rename method and pass a dictionary where the keys are the old column names and the values are the new column names. In this case, we want to rename the "genres" column to "genre" because after exploding, each row will only have one genre, so it makes more sense to use the singular form.
+    report_df.sort_values("avg_rating", ascending=False, inplace=True) #Inplace=True chnages the original dataframe instead of creating a new one, and sort_values is used to sort the dataframe by the "avg_rating" column in descending order (highest rated genres first).
+    
+    os.makedirs("outputs", exist_ok=True) #creates a folder in the directory called outputs if it doesnt exist.
+    
+    report_df.to_csv("outputs/genre_summary.csv", index=False) # we set index to false because we don't want to include the index as a column in the CSV file. The index is just a row label and doesn't contain any meaningful data for our report, so we can exclude it from the CSV.
 
 
 def main():
     raw_data = fetch_games()
     cleaned_data = transform_games(raw_data)
     load_data(cleaned_data)
+    export_deliverable(cleaned_data)
 
 main()
 

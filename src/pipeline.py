@@ -43,8 +43,9 @@ def fetch_games():
         return all_games[:50]
 
     except Exception as e:
+        
         logger.error(f"An error occurred: {e}")
-        return []  # we return an empty list if there was an error, this way the rest of the pipeline can still run without crashing, and we will just end up with an empty dataset. This is a way to handle errors gracefully and ensure that our pipeline is robust.
+        raise  # we re-raise the exception after logging it so that the error can be handled by the caller or cause the program to exit, rather than silently failing and returning None or an empty list which could lead to further errors down the line when we try to process the data. By re-raising the exception, we ensure that any issues are properly surfaced and can be addressed.
 
     finally:
         logger.info("Data fetching process completed.")

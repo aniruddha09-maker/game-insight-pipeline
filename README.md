@@ -86,13 +86,9 @@ The pipeline creates a table named `games`.
 | playtime      | INTEGER |
 | ratings_count | INTEGER |
 
-### Database Schema
+### Table Sample
 
-![Database Schema](assets/database_schema.png)
-
-### Sample Data
-
-![Sample Data](assets/sample_data.png)
+![Table Sample](asset/postgree_table.png)
 
 ---
 
@@ -106,7 +102,7 @@ outputs/genre_summary.csv
 
 ### Sample Report
 
-![Genre Summary](assets/genre_summary.png)
+![Genre Summary](asset/genre_summary.png)
 
 ---
 

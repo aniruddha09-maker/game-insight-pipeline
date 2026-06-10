@@ -4,9 +4,21 @@ import os
 load_dotenv()
 import pandas as pd
 import psycopg
+import logging
+
+os.makedirs("logs", exist_ok=True) # creates a folder in the directory called logs if it doesnt exist.
+
+logging.basicConfig(
+    filename="logs/pipeline.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 def fetch_games():
     try: 
+        logger.info("Starting data extraction process.")
         api_key = os.getenv("RAWG_API_KEY")       #retrives the key from env
         if not api_key:   # important to check if the key is actually there, otherwise we will get an error when we try to use it.
             raise ValueError("API key not found. Please set the RAWG_API_KEY environment variable.")  
@@ -25,16 +37,20 @@ def fetch_games():
             response.raise_for_status() 
             data = response.json()
             all_games.extend(data.get("results", []))
+        
+        logger.info(f"Retrieved {len(all_games[:50])} games")
 
         return all_games[:50]
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
+        return []  # we return an empty list if there was an error, this way the rest of the pipeline can still run without crashing, and we will just end up with an empty dataset. This is a way to handle errors gracefully and ensure that our pipeline is robust.
 
     finally:
-        print("Data fetching process completed.")
+        logger.info("Data fetching process completed.")
 
 def transform_games(raw_data):
+    logger.info("Starting data transformation process.")
     cleaned_data = []
     for game in raw_data:
         cleaned_game = {
@@ -49,6 +65,7 @@ def transform_games(raw_data):
         }
         cleaned_data.append(cleaned_game)
     cleaned_df = pd.DataFrame(cleaned_data)
+    logger.info("Data transformation process completed.")
     return cleaned_df
 
 def load_data(cleaned_df):
@@ -63,6 +80,9 @@ def load_data(cleaned_df):
             password=os.getenv("DB_PASSWORD")
         )
         cur = conn.cursor()
+
+        logger.info("Connected to the database successfully.")
+
         cur.execute(
             '''
             CREATE TABLE IF NOT EXISTS games (
@@ -90,12 +110,15 @@ def load_data(cleaned_df):
 
         conn.commit()   #commits the transaction to the database, which means that the changes we made (creating the table) are saved to the database. If we didn't call commit(), the changes would not be saved and would be lost when the connection is closed.
 
+        logger.info(f"Created and inserted {len(row_list)} records into the games table.")
+
     except Exception as e:
-        print(f"An error occurred while connecting to the database: {e}")
+        logger.error(f"An error occurred while connecting to the database: {e}")
     
     finally:
-        if conn is not None and cur is not None:    #Here we check if the connection and cursor were successfully created before trying to close them.
+        if cur is not None:  #Here we check if the connection and cursor were successfully created before trying to close them.
             cur.close()
+        if conn is not None:
             conn.close()
 
 def export_deliverable(cleaned_df):  # This will create the genre summary CSV file.
@@ -117,6 +140,7 @@ def export_deliverable(cleaned_df):  # This will create the genre summary CSV fi
     
     report_df.to_csv("outputs/genre_summary.csv", index=False) # we set index to false because we don't want to include the index as a column in the CSV file. The index is just a row label and doesn't contain any meaningful data for our report, so we can exclude it from the CSV.
 
+    logger.info("Generated outputs/genre_summary.csv")
 
 def main():
     raw_data = fetch_games()
